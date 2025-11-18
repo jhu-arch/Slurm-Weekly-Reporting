@@ -1,0 +1,49 @@
+# Partition: GPU Type
+gpu_type_map:
+  a100: a100
+  ica100: a100
+  mig_class: a100
+  l40s: l40s
+  v100: v100
+
+gpu_types:
+  - a100
+  - l40s
+  - v100
+
+billing_rates:
+  cpu_core_hour: 0.0058
+  a100_gpu_hour: 0.561
+  l40s_gpu_hour: 0.287
+  v100_gpu_hour: 0.90
+
+email:
+  sender: "help@arch.jhu.edu"
+  signature:
+    - "Regards,"
+    - ""
+    - "ARCH Help Team"
+    - "Advanced Research Computing at Hopkins (ARCH)"
+    - "help@arch.jhu.edu"
+    - "https://www.arch.jhu.edu"
+    - "https://docs.arch.jhu.edu/"
+
+commands:
+  sacct: "/cm/shared/apps/slurm/current/bin/sacct"
+  sreport: "/cm/shared/apps/slurm/current/bin/sreport"
+  scontrol: "/cm/shared/apps/slurm/current/bin/scontrol"
+
+pi_account_grouping:
+  method: "prefix"
+  delimiters:
+    - "_"
+    - "-"
+  strip_suffixes:
+    - "gpu"
+    - "bigmem"
+    - "condo"
+    - "extended"
+    - "l40s"
+    - "a100"
+    - "v100"
+    - "mig"
