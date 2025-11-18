@@ -18,7 +18,7 @@ except ImportError:
 # =============================
 # BASE PATHS (cluster-agnostic)
 # =============================
-BASE_DIR = Path("/home/mprotzm2/sreport_weekly")
+BASE_DIR = Path("/data/rfadmin/mprotzm2_scripts//sreport_weekly")
 LOG_DIR = BASE_DIR / "logs"
 ARCHIVE_DIR = BASE_DIR / "archive"
 

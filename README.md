@@ -231,13 +231,6 @@ This makes it easy to audit what was sent for any given week.
 
 ---
 
-## What about generate_pi_data.py?
-
-A legacy helper script, generate_pi_data.py, also exists and can:
-
-- generate pi_accounts.json from sacctmgr
-- generate pi_emails.json from LDAP
-
 The current weekly_pi_emails.py has its own regeneration logic (ensure_fresh_data), which:
 
 - checks age of pi_accounts.json and pi_emails.json
@@ -262,8 +255,3 @@ Example cron entry (run every Monday at 09:00):
 
 Contributions, suggestions, and cluster-specific examples (different GPU maps, partition layouts, etc.) are welcome.
 
----
-
-## License
-
-Add your preferred license here (for example, MIT).
