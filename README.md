@@ -167,9 +167,9 @@ pi_account_grouping:
     - extended
 
 email:
-  sender: help@arch.jhu.edu
-  admin_email: help@arch.jhu.edu
-  signature:
+  - sender: help@arch.jhu.edu
+  - admin_email: help@arch.jhu.edu
+  - signature:
     - ARCH Help Team
     - Advanced Research Computing at Hopkins (ARCH)
     - help@arch.jhu.edu
