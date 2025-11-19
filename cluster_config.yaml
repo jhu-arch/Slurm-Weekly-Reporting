@@ -1,3 +1,6 @@
+cluster_name: "Rockfish"
+ldap_base_dn : "dc=cm,dc=cluster"
+
 # Partition: GPU Type
 gpu_type_map:
   a100: a100
@@ -6,11 +9,13 @@ gpu_type_map:
   l40s: l40s
   v100: v100
 
+# List of recognized GPU types, i.e "gres/gpu:h100"
 gpu_types:
   - a100
   - l40s
   - v100
 
+# for use with accounting.py
 billing_rates:
   cpu_core_hour: 0.00
   a100_gpu_hour: 0.00

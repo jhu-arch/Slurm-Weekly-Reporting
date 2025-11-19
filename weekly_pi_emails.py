@@ -18,7 +18,7 @@ except ImportError:
 # =============================
 # BASE PATHS (cluster-agnostic)
 # =============================
-BASE_DIR = Path("/data/rfadmin/mprotzm2_scripts//sreport_weekly")
+BASE_DIR = Path("/data/rfadmin/mprotzm2_scripts/sreport_weekly")
 LOG_DIR = BASE_DIR / "logs"
 ARCHIVE_DIR = BASE_DIR / "archive"
 
@@ -33,6 +33,9 @@ SMTP_SERVER = "localhost"  # can be externalized later if you want
 CONFIG = None
 SENDER = None  # comes from CONFIG["email"]["sender"]
 ADMIN_EMAIL = None  # comes from CONFIG["email"]["admin_email"]
+CLUSTER_NAME = None
+LDAP_BASE_DN = None
+
 
 # =============================
 # Config helpers / validation
@@ -57,7 +60,16 @@ def load_config():
         config_error("Top-level structure must be a mapping (YAML dictionary).")
 
     # Required top-level keys
-    for key in ["gpu_type_map", "gpu_types", "billing_rates", "email", "commands", "pi_account_grouping"]:
+    for key in [
+        "gpu_type_map",
+        "gpu_types",
+        "billing_rates",
+        "email",
+        "commands",
+        "pi_account_grouping",
+        "cluster_name",
+        "ldap_base_dn",
+    ]:
         if key not in cfg:
             config_error(f"Missing required top-level key: {key}")
 
@@ -201,7 +213,7 @@ def build_pi_accounts():
 def build_pi_emails():
     """Query LDAP for uid/mail and filter invalid ones."""
     log("[→] Querying LDAP for PI emails…")
-    cmd = "ldapsearch -x -LLL -b 'dc=cm,dc=cluster' '(uid=*)' uid mail"
+    cmd = f"ldapsearch -x -LLL -b '{CONFIG['ldap_base_dn']}' '(uid=*)' uid mail"
     output = run_cmd(cmd, use_shell=True)
     emails = {}
     current_uid = None
@@ -372,7 +384,9 @@ def get_sacct_usage(start, end):
         log("[!] sacct returned no data.")
         return {}
 
-    usage = defaultdict(lambda: {"cpu": 0.0, "a100": 0.0, "l40s": 0.0, "v100": 0.0})
+    # Build dynamic GPU buckets from YAML config
+    gpu_buckets = {t.lower(): 0.0 for t in CONFIG["gpu_types"]}
+    usage = defaultdict(lambda: {"cpu": 0.0, **gpu_buckets})
 
     for line in output.splitlines():
         if not line.strip():
@@ -443,47 +457,33 @@ def format_pi_report(pi, accounts, usage_by_acct_user, start=None, end=None):
     Build the full plain-text report for a PI.
     usage_by_acct_user: dict[(account,user)] = {cpu, a100, l40s, v100}
     """
+    global CLUSTER_NAME
     start = start or "this week"
     end = end or "today"
 
     # Aggregate per-user usage across all accounts owned by this PI
-    per_user = defaultdict(lambda: {"cpu": 0.0, "a100": 0.0, "l40s": 0.0, "v100": 0.0})
+    gpu_types = [t.lower() for t in CONFIG["gpu_types"]]
+    per_user = defaultdict(lambda: {"cpu": 0.0, **{t: 0.0 for t in gpu_types}})
 
     for (account, user), metrics in usage_by_acct_user.items():
         if account not in accounts:
             continue
         per_user[user]["cpu"] += metrics.get("cpu", 0.0)
-        per_user[user]["a100"] += metrics.get("a100", 0.0)
-        per_user[user]["l40s"] += metrics.get("l40s", 0.0)
-        per_user[user]["v100"] += metrics.get("v100", 0.0)
-
-    # No usage at all for this PI
-    if not per_user:
-        return (
-            f"Dear User,\n\n"
-            f"This report summarizes compute usage for your research group on the Rockfish cluster "
-            f"from {start} through {end}.\n\n"
-            f"No recorded CPU or GPU usage was found for your associated accounts during this period.\n\n"
-            f"{signature_block()}\n"
-        )
-
+        for t in gpu_types:
+            per_user[user][t] += metrics.get(t, 0.0)
+        
     # Totals across all users / accounts
     total_cpu = sum(v["cpu"] for v in per_user.values())
-    total_a100 = sum(v["a100"] for v in per_user.values())
-    total_l40s = sum(v["l40s"] for v in per_user.values())
-    total_v100 = sum(v["v100"] for v in per_user.values())
+    total_gpu = {t: sum(v[t] for v in per_user.values()) for t in gpu_types}
 
     # Build summary block (only non-zero fields)
     summary_lines = []
     summary_lines.append("All Accounts Combined:")
     if total_cpu > 0:
         summary_lines.append(f"CPU Hours:  {fmt_hours(total_cpu)}")
-    if total_a100 > 0:
-        summary_lines.append(f"A100 Hours: {fmt_hours(total_a100)}")
-    if total_l40s > 0:
-        summary_lines.append(f"L40S Hours: {fmt_hours(total_l40s)}")
-    if total_v100 > 0:
-        summary_lines.append(f"V100 Hours: {fmt_hours(total_v100)}")
+    for t in gpu_types:
+        if total_gpu[t] > 0:
+            summary_lines.append(f"{t.upper()} Hours: {fmt_hours(total_gpu[t])}")
 
     summary_block = "\n".join(summary_lines)
 
@@ -499,39 +499,23 @@ def format_pi_report(pi, accounts, usage_by_acct_user, start=None, end=None):
                 user_lines.append(f"  → {user}: {fmt_hours(per_user[user]['cpu'])}")
         user_lines.append("")
 
-    # A100 section
-    if total_a100 > 0:
-        user_lines.append("A100 Hours:")
-        for user in sorted(per_user.keys()):
-            if per_user[user]["a100"] > 0:
-                user_lines.append(f"  → {user}: {fmt_hours(per_user[user]['a100'])}")
-        user_lines.append("")
-
-    # L40S section
-    if total_l40s > 0:
-        user_lines.append("L40S Hours:")
-        for user in sorted(per_user.keys()):
-            if per_user[user]["l40s"] > 0:
-                user_lines.append(f"  → {user}: {fmt_hours(per_user[user]['l40s'])}")
-        user_lines.append("")
-
-    # V100 section
-    if total_v100 > 0:
-        user_lines.append("V100 Hours:")
-        for user in sorted(per_user.keys()):
-            if per_user[user]["v100"] > 0:
-                user_lines.append(f"  → {user}: {fmt_hours(per_user[user]['v100'])}")
-        user_lines.append("")
+    for t in gpu_types:
+        if total_gpu[t] > 0:
+            user_lines.append(f"{t.upper()} Hours:")
+            for user in sorted(per_user.keys()):
+                if per_user[user][t] > 0:
+                    user_lines.append(f"  → {user}: {fmt_hours(per_user[user][t])}")
+            user_lines.append("")
 
     user_block = "\n".join(user_lines).rstrip()
 
     body = f"""Dear User,
 
-This report summarizes CPU and GPU usage for your research group on the Rockfish cluster from {start} through {end}.
+This report summarizes CPU and GPU usage for your research group on the {CLUSTER_NAME} cluster from {start} through {end}.
 
 The first section aggregates all of your associated Slurm accounts. The second section breaks the same usage down by individual user login.
 
-Rockfish Weekly Usage Report for {pi}
+{CLUSTER_NAME} Weekly Usage Report for {pi}
 =====================================
 
 {summary_block}
@@ -593,8 +577,11 @@ def send_email(to, subject, body, dry_run=False, archive_label=None, start=None,
 # =============================
 def admin_summary_report(start, end, sent_count, skipped_no_usage,
                          usage_by_acct_user):
+    global CLUSTER_NAME
+    gpu_types = [t.lower() for t in CONFIG["gpu_types"]]
+    
     lines = []
-    lines.append("Rockfish Weekly Usage Summary\n")
+    lines.append(f"{CLUSTER_NAME} Weekly Usage Summary\n")
     lines.append(f"Run timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append(f"Date range: {start} → {end}\n")
 
@@ -604,7 +591,7 @@ def admin_summary_report(start, end, sent_count, skipped_no_usage,
     admin_user_usage = defaultdict(float)
 
     for (account, user), m in usage_by_acct_user.items():
-        total = m["cpu"] + m["a100"] + m["l40s"] + m["v100"]
+        total = m["cpu"] + sum(m[t] for t in gpu_types)
         admin_total_hours += total
         admin_account_usage[account] += total
         admin_user_usage[(user, account)] += total
@@ -651,12 +638,12 @@ def archive_admin_summary(start, end, summary):
 # Main workflow
 # =============================
 def main(dry_run=False, target_pi=None, test_run=False):
-    global CONFIG, SENDER
-
-    # Load + validate YAML config
+    global CONFIG, SENDER, ADMIN_EMAIL, CLUSTER_NAME, LDAP_BASE_DN
     CONFIG = load_config()
     SENDER = CONFIG["email"]["sender"]
     ADMIN_EMAIL = CONFIG["email"]["admin_email"]
+    CLUSTER_NAME = CONFIG["cluster_name"]
+    LDAP_BASE_DN = CONFIG["ldap_base_dn"]
 
     ensure_fresh_data()
     pi_accounts = json.load(open(PI_ACCOUNTS_JSON))
@@ -668,15 +655,19 @@ def main(dry_run=False, target_pi=None, test_run=False):
     # Dump usage for debug/record
     usage_file = DATA_DIR / f"usage_{start}_{end}.json"
     dump_list = []
+    gpu_types = [t.lower() for t in CONFIG["gpu_types"]]
     for (account, user), m in usage_by_acct_user.items():
-        dump_list.append({
+
+        entry = {
             "account": account,
             "user": user,
             "cpu_core_hours": m["cpu"],
-            "a100_hours": m["a100"],
-            "l40s_hours": m["l40s"],
-            "v100_hours": m["v100"],
-        })
+        }
+        for t in gpu_types:
+            entry[f"{t}_hours"] = m[t]
+
+        dump_list.append(entry)
+
     json.dump(dump_list, open(usage_file, "w"), indent=2)
     log(f"[✓] Saved usage dump → {usage_file}")
 
@@ -706,7 +697,7 @@ def main(dry_run=False, target_pi=None, test_run=False):
         has_usage = False
         for (account, user), m in usage_by_acct_user.items():
             if account in accounts and (
-                m["cpu"] > 0 or m["a100"] > 0 or m["l40s"] > 0 or m["v100"] > 0
+                m["cpu"] > 0 or any(m[t] > 0 for t in gpu_types)
             ):
                 has_usage = True
                 break
@@ -727,11 +718,11 @@ def main(dry_run=False, target_pi=None, test_run=False):
         # Determine recipient + subject
         if test_run:
             recipient = ADMIN_EMAIL
-            subject = f"[TEST] Rockfish Weekly Usage Report for {pi} ({start} → {end})"
+            subject = f"[TEST] {CLUSTER_NAME} Weekly Usage Report for {pi} ({start} → {end})"
             log(f"[→] TEST-RUN: sending {pi}'s report to {recipient}")
         else:
             recipient = email
-            subject = f"[Rockfish] Weekly Usage Report ({start} → {end})"
+            subject = f"[{CLUSTER_NAME}] Weekly Usage Report ({start} → {end})"
 
         send_email(
             recipient,
@@ -763,7 +754,7 @@ def main(dry_run=False, target_pi=None, test_run=False):
         # Preserve old behavior: send admin summary even in dry-run mode
         send_email(
             ADMIN_EMAIL,
-            f"[Rockfish] Weekly Usage Summary ({start} → {end})",
+            f"[{CLUSTER_NAME}] Weekly Usage Summary ({start} → {end})",
             summary,
             dry_run=False,
             archive_label="admin_summary",
@@ -777,7 +768,7 @@ def main(dry_run=False, target_pi=None, test_run=False):
     if not test_run:
         send_email(
             ADMIN_EMAIL,
-            f"[Rockfish] Weekly Usage Summary ({start} → {end})",
+            f"[{CLUSTER_NAME}] Weekly Usage Summary ({start} → {end})",
             summary,
             dry_run=False,
             archive_label="admin_summary",
@@ -794,19 +785,9 @@ def main(dry_run=False, target_pi=None, test_run=False):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(
-        description="Generate and email Rockfish weekly CPU/GPU usage reports using sacct, driven by cluster_config.yaml."
-    )
+    parser = argparse.ArgumentParser(description="Generate and email weekly CPU/GPU usage reports using sacct, driven by cluster_config.yaml.")
     parser.add_argument("--pi", help="Limit to one PI for testing.")
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print output instead of sending email (admin summary still sent).",
-    )
-    parser.add_argument(
-        "--test-run",
-        action="store_true",
-        help="Send the selected PI's report to the configured admin_email only.",
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Print output instead of sending email (admin summary still sent).",)
+    parser.add_argument("--test-run", action="store_true", help="Send the selected PI's report to the configured admin_email only.",)
     args = parser.parse_args()
     main(dry_run=args.dry_run, target_pi=args.pi, test_run=args.test_run)
