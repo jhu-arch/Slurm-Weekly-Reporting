@@ -32,7 +32,7 @@ SMTP_SERVER = "localhost"  # can be externalized later if you want
 # Will be filled by load_config() in main()
 CONFIG = None
 SENDER = None  # comes from CONFIG["email"]["sender"]
-
+ADMIN_EMAIL = None  # comes from CONFIG["email"]["admin_email"]
 
 # =============================
 # Config helpers / validation
@@ -65,6 +65,8 @@ def load_config():
     email_cfg = cfg["email"]
     if "sender" not in email_cfg:
         config_error("email.sender is required.")
+    if "admin_email" not in email_cfg:
+        config_error("email.admin_email is required.")
     if "signature" not in email_cfg or not isinstance(email_cfg["signature"], list):
         config_error("email.signature must be a list of lines.")
 
@@ -654,6 +656,7 @@ def main(dry_run=False, target_pi=None, test_run=False):
     # Load + validate YAML config
     CONFIG = load_config()
     SENDER = CONFIG["email"]["sender"]
+    ADMIN_EMAIL = CONFIG["email"]["admin_email"]
 
     ensure_fresh_data()
     pi_accounts = json.load(open(PI_ACCOUNTS_JSON))
@@ -723,7 +726,7 @@ def main(dry_run=False, target_pi=None, test_run=False):
 
         # Determine recipient + subject
         if test_run:
-            recipient = "help@arch.jhu.edu"
+            recipient = ADMIN_EMAIL
             subject = f"[TEST] Rockfish Weekly Usage Report for {pi} ({start} → {end})"
             log(f"[→] TEST-RUN: sending {pi}'s report to {recipient}")
         else:
@@ -759,7 +762,7 @@ def main(dry_run=False, target_pi=None, test_run=False):
 
         # Preserve old behavior: send admin summary even in dry-run mode
         send_email(
-            "help@arch.jhu.edu",
+            ADMIN_EMAIL,
             f"[Rockfish] Weekly Usage Summary ({start} → {end})",
             summary,
             dry_run=False,
@@ -773,7 +776,7 @@ def main(dry_run=False, target_pi=None, test_run=False):
 
     if not test_run:
         send_email(
-            "help@arch.jhu.edu",
+            ADMIN_EMAIL,
             f"[Rockfish] Weekly Usage Summary ({start} → {end})",
             summary,
             dry_run=False,
@@ -785,7 +788,7 @@ def main(dry_run=False, target_pi=None, test_run=False):
         log("\n[✓] Completed weekly report generation.")
         log(f"    Sent {sent_count} report(s), {skipped_no_usage} had no usage.")
     else:
-        log("\n[✓] Test run complete — PI email sent only to help@arch.jhu.edu.")
+        log("\n[✓] Test run complete — PI email sent only to configured admin_email.")
         log("    (Admin summary NOT sent during --test-run)")
 
 
@@ -803,7 +806,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--test-run",
         action="store_true",
-        help="Send the selected PI's report to help@arch.jhu.edu only.",
+        help="Send the selected PI's report to the configured admin_email only.",
     )
     args = parser.parse_args()
     main(dry_run=args.dry_run, target_pi=args.pi, test_run=args.test_run)

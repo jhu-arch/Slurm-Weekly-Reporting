@@ -12,13 +12,14 @@ gpu_types:
   - v100
 
 billing_rates:
-  cpu_core_hour: 0.0058
-  a100_gpu_hour: 0.561
-  l40s_gpu_hour: 0.287
-  v100_gpu_hour: 0.90
+  cpu_core_hour: 0.00
+  a100_gpu_hour: 0.00
+  l40s_gpu_hour: 0.00
+  v100_gpu_hour: 0.00
 
 email:
   sender: "help@arch.jhu.edu"
+  admin_email: "help@arch.jhu.edu"
   signature:
     - "Regards,"
     - ""
