@@ -149,14 +149,14 @@ billing_rates:
   - v100_gpu_hour: 0.00
 
 commands:
-  sacct: /usr/bin/sacct
-  sreport: /usr/bin/sreport
-  scontrol: /usr/bin/scontrol
+  - sacct: /usr/bin/sacct
+  - sreport: /usr/bin/sreport
+  - scontrol: /usr/bin/scontrol
 
 pi_account_grouping:
-  method: prefix
-  delimiters: ["_", "-"]
-  strip_suffixes:
+  - method: prefix
+  - delimiters: ["_", "-"]
+  - strip_suffixes:
     - gpu
     - a100
     - l40s
