@@ -79,7 +79,7 @@ What It Does
 - Parses TRES allocations to compute:
   - CPU core-hours
   - GPU-hours by canonical GPU type
-  - Extra CPU-hours above DefCpuPerGPU bundle
+  - Extra CPU-hours above DefCpuPerGPU bundle (we're likely not charging for these, so they're separated in the output)
 - Canonicalizes GPU type names using gpu_type_map from YAML.
 - Applies billing rates stored in cluster_config.yaml when --rates is used.
 - Detects CPU-only vs GPU partitions via scontrol.
@@ -136,17 +136,17 @@ gpu_types:
   - v100
 
 gpu_type_map:
-  a100: a100
-  ica100: a100
-  l40s: l40s
-  v100: v100
-  mig_class: a100
+  - a100: a100
+  - ica100: a100
+  - l40s: l40s
+  - v100: v100
+  - mig_class: a100
 
 billing_rates:
-  cpu_core_hour: 0.0058
-  a100_gpu_hour: 0.561
-  l40s_gpu_hour: 0.287
-  v100_gpu_hour: 0.90
+  - cpu_core_hour: 0.00
+  - a100_gpu_hour: 0.00
+  - l40s_gpu_hour: 0.00
+  - v100_gpu_hour: 0.00
 
 commands:
   sacct: /usr/bin/sacct
@@ -168,6 +168,7 @@ pi_account_grouping:
 
 email:
   sender: help@arch.jhu.edu
+  admin_email: help@arch.jhu.edu
   signature:
     - ARCH Help Team
     - Advanced Research Computing at Hopkins (ARCH)
