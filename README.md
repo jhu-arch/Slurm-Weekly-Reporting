@@ -9,9 +9,8 @@ The two scripts are:
 
 Both scripts are fully driven by cluster_config.yaml, ensuring portability across clusters with different GPU types, Slurm paths, and billing models.
 
-----------------------------------------------------------------------
-1. weekly_pi_emails.py — Automated Weekly PI Usage Reports
-----------------------------------------------------------------------
+weekly_pi_emails.py — Automated Weekly PI Usage Reports
+--------------------------------------------------------
 
 Purpose
 -------
@@ -43,12 +42,12 @@ What It Does
 
 Directory Layout
 ----------------
-sreport_weekly/
-  weekly_pi_emails.py
-  cluster_config.yaml
-  datadump/
-  logs/
-  archive/
+- sreport_weekly/
+  - weekly_pi_emails.py
+  - cluster_config.yaml
+  - datadump/
+  - logs/
+  - archive/
 
 Usage
 -----
@@ -67,9 +66,8 @@ Dry run - prints PI and / or user emails to stdout instead of sending them. Admi
 	python weekly_pi_emails.py --run-pi-emails --dry-run
 	python weekly_pi_emails.py --run-user-emails --dry-run
 
-----------------------------------------------------------------------
 2. accounting.py — Slurm Accounting & Billing Calculator
-----------------------------------------------------------------------
+---------------------------------------------------------
 
 Purpose
 -------
@@ -100,23 +98,22 @@ Key Features
 Usage
 -----
 Default (last 7 days):
-    python accounting.py
+- python accounting.py
 
 Custom date range:
-  # Optional: throttle outbound mail (seconds).
-  # Recommended if you’re worried about SMTP load.
+- # Optional: throttle outbound mail (seconds).
+- # Recommended if you’re worried about SMTP load.
   send_delay_seconds: 0.25    python accounting.py -s 2025-01-01 -e 2025-01-08
 
-Billing mode:
-    python accounting.py --rates
+- Billing mode:
+	- python accounting.py --rates
 
-Auto-named CSV:
-    python accounting.py --csv
+- Auto-named CSV:
+	- python accounting.py --csv
 
-Custom CSV filename:
-    python accounting.py --csv billing_q1.csv
+- Custom CSV filename:
+	- python accounting.py --csv billing_q1.csv
 
-----------------------------------------------------------------------
 3. Shared Configuration — cluster_config.yaml
 ----------------------------------------------------------------------
 
@@ -174,8 +171,8 @@ email:
   - sender: help@arch.jhu.edu
   - admin_email: help@arch.jhu.edu
 
-  # Optional: throttle outbound mail (seconds).
-  # Recommended if you’re worried about SMTP load.
+  - # Optional: throttle outbound mail (seconds).
+  - # Recommended if you’re worried about SMTP load.
   - send_delay_seconds: 0.25
 
   - signature:
@@ -185,9 +182,8 @@ email:
     - https://www.arch.jhu.edu
     - https://docs.arch.jhu.edu
 
-----------------------------------------------------------------------
 4. When to Use Each Script
-----------------------------------------------------------------------
+---------------------------
 
 Use weekly_pi_emails.py when:
 - You need automated weekly PI-facing reports.
@@ -203,9 +199,8 @@ Use accounting.py when:
 - You want standardized usage categorization across accounts.
 - You need a standalone accounting report without email.
 
-----------------------------------------------------------------------
 5. Quick Start Summary
-----------------------------------------------------------------------
+-----------------------
 
 1. Place cluster_config.yaml in the directory with the scripts.
 2. Run weekly_pi_emails.py for automated Monday-Sunday PI reports.
