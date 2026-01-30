@@ -19,28 +19,27 @@ Automatically generates and emails weekly usage summaries for each PI. Each PI r
 
 What It Does
 ------------
-- Queries sacct and sreport for the previous Monday–Sunday period.
-- Builds per-PI usage reports including:
-  - CPU core-hours
-  - GPU-hours by canonical GPU type
-  - Per-user breakdown
-- Automatically groups Slurm accounts into PI families using rules in cluster_config.yaml.
-- Looks up PI email addresses from LDAP.
-- Sends emails through SMTP using configurable sender and signature.
-- Generates an admin summary including:
-  - Total cluster hours used
-  - Top accounts by usage
-  - Top users by usage
-  - Number of PIs with and without usage
-- Archives each PI email and the admin summary.
-- Logs all actions for later audit.
+### PI reports
+- Builds PI → Slurm account groupings (based on configured suffix-stripping rules)
+- Pulls usage from `sacct` for the reporting window
+- Sends **one email per PI** *only if the PI has non-zero usage*
+- Uses Unix group membership (`getent group` + `getent passwd`) to build a PI roster
+- Includes per-user breakdown, but collapses all-zero users into a single section:
+  - CPU and GPU sections include **only users with usage**
+  - Users with **no usage across all tracked resources** are listed in:
+    - “The following users had no usage for this period: …”
 
-Key Features
-------------
-- dry-run mode (prints output, sends no PI emails)
-- test-run mode (only sends selected PI's email to help@arch.jhu.edu)
-- automatic regeneration of stale PI data files
-- configurable entirely through cluster_config.yaml
+### User reports
+- Sends **one email per user** *only if the user has non-zero usage*
+- Groups the user’s usage by PI root (research group)
+
+### Admin summary
+- Generates an admin summary containing:
+  - Date range
+  - Total compute hours (CPU + GPU-hours)
+  - Counts of reports sent / skipped
+  - Top accounts and top users by usage
+- In **dry-run mode**, the script still sends the admin summary (by design)
 
 Directory Layout
 ----------------
@@ -54,16 +53,19 @@ sreport_weekly/
 Usage
 -----
 Full weekly run:
-    python weekly_pi_emails.py
+Send **weekly PI emails** (one email per PI with non-zero usage) and the admin summary:
+	python weekly_pi_emails.py --run-pi-emails
 
-Dry run:
-    python weekly_pi_emails.py --dry-run
+Send **weekly User emails** (one email per user with non-zero usage) and the admin summary:
+	python weekly_pi_emails.py --run-user-emails
 
-Test run for a single PI:
-    python weekly_pi_emails.py --test-run --pi jsmith1
+Test Runs - routes outgoing email to the configured test sink and sends only one message total 
+	python weekly_pi_emails.py --run-pi-emails --pi mschatz1 --test-run
+	python weekly_pi_emails.py --run-user-emails --user mschatz1 --test-run
 
-Run for one PI only:
-    python weekly_pi_emails.py --pi jsmith1
+Dry run - prints PI and / or user emails to stdout instead of sending them. Admin summary still sends to test sink.
+	python weekly_pi_emails.py --run-pi-emails --dry-run
+	python weekly_pi_emails.py --run-user-emails --dry-run
 
 ----------------------------------------------------------------------
 2. accounting.py — Slurm Accounting & Billing Calculator
@@ -101,7 +103,9 @@ Default (last 7 days):
     python accounting.py
 
 Custom date range:
-    python accounting.py -s 2025-01-01 -e 2025-01-08
+  # Optional: throttle outbound mail (seconds).
+  # Recommended if you’re worried about SMTP load.
+  send_delay_seconds: 0.25    python accounting.py -s 2025-01-01 -e 2025-01-08
 
 Billing mode:
     python accounting.py --rates
@@ -169,6 +173,11 @@ pi_account_grouping:
 email:
   - sender: help@arch.jhu.edu
   - admin_email: help@arch.jhu.edu
+
+  # Optional: throttle outbound mail (seconds).
+  # Recommended if you’re worried about SMTP load.
+  - send_delay_seconds: 0.25
+
   - signature:
     - ARCH Help Team
     - Advanced Research Computing at Hopkins (ARCH)

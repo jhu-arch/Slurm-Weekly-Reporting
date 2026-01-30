@@ -1,5 +1,6 @@
+
 cluster_name: "Rockfish"
-ldap_base_dn : "dc=cm,dc=cluster"
+ldap_base_dn : "dc=XX,dc=XX"
 
 # Partition: GPU Type
 gpu_type_map:
@@ -17,10 +18,10 @@ gpu_types:
 
 # for use with accounting.py
 billing_rates:
-  cpu_core_hour: 0.00
-  a100_gpu_hour: 0.00
-  l40s_gpu_hour: 0.00
-  v100_gpu_hour: 0.00
+  cpu_core_hour: 0.0
+  a100_gpu_hour: 0.0
+  l40s_gpu_hour: 0.0
+  v100_gpu_hour: 0.0
 
 email:
   sender: "help@arch.jhu.edu"
@@ -33,11 +34,11 @@ email:
     - "help@arch.jhu.edu"
     - "https://www.arch.jhu.edu"
     - "https://docs.arch.jhu.edu/"
-
+  send_delay_seconds: 0.25
 commands:
-  sacct: "/cm/shared/apps/slurm/current/bin/sacct"
-  sreport: "/cm/shared/apps/slurm/current/bin/sreport"
-  scontrol: "/cm/shared/apps/slurm/current/bin/scontrol"
+  sacct: "$SACCTPATHHERE"
+  sreport: "$SREPORTPATHHERE"
+  scontrol: "$SCONTROLPATHHERE"
 
 pi_account_grouping:
   method: "prefix"

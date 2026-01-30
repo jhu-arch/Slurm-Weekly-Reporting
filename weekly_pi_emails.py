@@ -1151,35 +1151,47 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Generate and email weekly CPU/GPU usage reports using sacct, driven by cluster_config.yaml."
     )
+
+    parser.add_argument(
+        "--run-pi-emails",
+        action="store_true",
+        help="Execute a PI email run (weekly PI usage reports).",
+    )
+    parser.add_argument(
+        "--run-user-emails",
+        action="store_true",
+        help="Execute a per-user email run (weekly user usage reports).",
+    )
+
     parser.add_argument("--pi", help="Limit PI reports to one PI for testing.")
     parser.add_argument("--user", dest="target_user", help="Limit user reports to one specific user (uid).")
-    parser.add_argument(
-        "--user-emails",
-        action="store_true",
-        help="Also send per-user reports to each user with non-zero usage (grouped by PI).",
-    )
-    parser.add_argument(
-        "--users-only",
-        action="store_true",
-        help="Send only per-user reports (skip PI reports).",
-    )
+
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print output instead of sending email (admin summary still sent).",
+        help="Print output instead of sending PI/user emails (admin summary still sent).",
     )
     parser.add_argument(
         "--test-run",
         action="store_true",
-        help="Route outgoing PI/user reports to the configured test sink (helpdesk_email/admin_email) and send only ONE message.",
+        help="Route outgoing PI/user reports to the configured test sink and send only ONE message.",
     )
+
     args = parser.parse_args()
+
+    # Require an explicit execution mode so this can't be run accidentally
+    if not args.run_pi_emails and not args.run_user_emails:
+        parser.print_help()
+        print("\nERROR: You must specify at least one execution mode:")
+        print("  --run-pi-emails")
+        print("  --run-user-emails")
+        sys.exit(2)
 
     main(
         dry_run=args.dry_run,
         target_pi=args.pi,
         test_run=args.test_run,
-        user_emails=args.user_emails,
-        users_only=args.users_only,
+        user_emails=args.run_user_emails,                        
+        users_only=(args.run_user_emails and not args.run_pi_emails),
         target_user=args.target_user,
     )
