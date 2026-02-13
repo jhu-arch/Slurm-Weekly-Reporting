@@ -19,7 +19,7 @@ except ImportError:
 # =============================
 # BASE PATHS (cluster-agnostic)
 # =============================
-BASE_DIR = Path("/data/rfadmin/mprotzm2_scripts/sreport_weekly")
+BASE_DIR = Path("/opt/mprov/software/sreport_weekly")
 LOG_DIR = BASE_DIR / "logs"
 ARCHIVE_DIR = BASE_DIR / "archive"
 
@@ -268,22 +268,44 @@ def build_pi_accounts():
     return mapping
 
 def build_pi_emails():
-    """Query LDAP for uid/mail and filter invalid ones."""
-    log("[→] Querying LDAP for PI emails…")
-    cmd = f"ldapsearch -x -LLL -b '{CONFIG['ldap_base_dn']}' '(uid=*)' uid mail"
-    output = run_cmd(cmd, use_shell=True)
+    """Query LDAP for uid/mail and build uid->mail mapping (order-independent)."""
+    log("[→] Querying LDAP for user emails…")
+
+    base_dn = CONFIG["ldap_base_dn"]
+    # Ask for uid + mail; ordering in output does not matter.
+    cmd = ["ldapsearch", "-x", "-LLL", "-o", "ldif-wrap=no", "-b", base_dn, "(uid=*)", "uid", "mail"]
+    output = run_cmd(cmd)
+
     emails = {}
-    current_uid = None
-    for line in output.splitlines():
-        if line.startswith("uid: "):
-            current_uid = line.split("uid: ")[1].strip()
-        elif line.startswith("mail: ") and current_uid:
-            mail = line.split("mail: ")[1].strip()
-            if mail and not mail.startswith("NULL-"):
-                emails[current_uid] = mail
-            current_uid = None
+    if not output:
+        log("[!] LDAP query returned no output.")
+        return emails
+
+    # Split into LDIF entries on blank lines
+    entries = [e.strip() for e in output.split("\n\n") if e.strip()]
+
+    for entry in entries:
+        uid = None
+        mail = None
+
+        for line in entry.splitlines():
+            line = line.strip()
+
+            # dn: lines can be ignored
+            if line.startswith("uid: "):
+                uid = line.split("uid: ", 1)[1].strip()
+            elif line.startswith("mail: "):
+                # If there are multiple mail attributes, keep the first "real" one
+                candidate = line.split("mail: ", 1)[1].strip()
+                if candidate and not candidate.startswith("NULL-") and mail is None:
+                    mail = candidate
+
+        if uid and mail:
+            emails[uid] = mail
+
     log(f"[✓] Found {len(emails)} valid LDAP email addresses.")
     return emails
+
 
 def ensure_fresh_data():
     """Regenerate pi_accounts.json and pi_emails.json if missing or older than 7 days."""
