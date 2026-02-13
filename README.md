@@ -12,12 +12,11 @@ Both scripts are fully driven by cluster_config.yaml, ensuring portability acros
 weekly_pi_emails.py — Automated Weekly PI Usage Reports
 --------------------------------------------------------
 
-Purpose
-#######
+## Purpose
+
 Automatically generates and emails weekly usage summaries for each PI. Each PI receives a breakdown of CPU and GPU usage across their Slurm accounts. An administrative summary is also generated, archived, and emailed to help@arch.jhu.edu.
 
-What It Does
-#############
+## What It Does
 
 ### PI reports
 - Builds PI → Slurm account groupings (based on configured suffix-stripping rules)
